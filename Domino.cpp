@@ -7,7 +7,7 @@
 
 Выполнил: Вещев Артём ПС-21
 IDE: Visual Studio 2022
-C++ 14
+C++ 20
 */
 
 #include <fstream>
@@ -15,12 +15,20 @@ C++ 14
 #include <string>
 #include <vector>
 #include <time.h>
+#include <algorithm>
+#include <chrono>
 
 struct Domino
 {
-	std::string first_side;
-	std::string second_side;
+	int first;
+	int second;
 	bool processed;
+	Domino(int f = 0, int s = 0)
+		: first(f)
+		, second(s)
+		, processed(false)
+	{
+	}
 };
 
 void read_input(std::vector<Domino>& dominoes)
@@ -41,7 +49,10 @@ void read_input(std::vector<Domino>& dominoes)
 	for (int i = 0; i < dominoes_count; i++)
 	{
 		dominoes.push_back(Domino());
-		input_file >> dominoes.at(i).first_side >> dominoes.at(i).second_side;
+		int l = 0, r = 0;
+		input_file >> l >> r;
+		dominoes.at(i).first = std::max(l, r);
+		dominoes.at(i).second = std::min(l, r);
 	}
 
 	if (input_file.bad())
@@ -50,7 +61,7 @@ void read_input(std::vector<Domino>& dominoes)
 	}
 }
 
-void write_output(const std::string& chain)
+void write_output(const std::vector<Domino>& chain)
 {
 	std::ofstream output_file;
 	output_file.open("output.txt");
@@ -60,7 +71,14 @@ void write_output(const std::string& chain)
 		throw std::runtime_error("Error opening output.txt");
 	}
 
-	output_file << chain << std::endl;
+	for (auto& d : chain)
+	{
+		output_file << d.first << d.second;
+		std::cout << d.first << d.second;
+	}
+
+	output_file << std::endl;
+	std::cout << std::endl;
 
 	if (!output_file.flush())
 	{
@@ -68,33 +86,18 @@ void write_output(const std::string& chain)
 	}
 }
 
-// Возвращает true, если цепочка s1 больше цепочки s2
-// Если цепочки длины по равне - сравнивает их числовое значение
-bool chain_is_longer(const std::string& s1, const std::string& s2)
-{
-	if (s2.empty() || s2[0] == '0' && (s1[0] !='0' || s1.length() > s2.length()))
-		return true;
-
-	if (s1 == s2)
-		return false;
-
-	for (size_t i = 0; i < s1.length(); ++i)
-	{
-		if (s1[i] != s2[i])
-			return s1[i] > s2[i];
-	}
-
-	return s1.length() > s2.length();
-}
-
-std::string get_max_chain(std::vector<Domino>& dominoes, bool start = true, const std::string& last_side = "0")
+std::vector<Domino> get_max_chain(std::vector<Domino>& dominoes, int last_side = -1)
 {
 	// В данную строку будет записываться текущая в процессе рекурсии цепочка
 	// В конце shortest_chain будет иметь максимальную цепочку из домино
-	std::string longest_chain;
+	std::vector<Domino> longest_chain;
 
 	for (Domino& domino : dominoes)
 	{
+		if (longest_chain.size() == dominoes.size())
+			break;
+
+
 		if (domino.processed)
 		{
 			// Если данное домино уже было использовано в постройке цепочки - пропускаем
@@ -102,32 +105,34 @@ std::string get_max_chain(std::vector<Domino>& dominoes, bool start = true, cons
 		}
 
 		// Случай, если домнио не надо переворачивать
-		if (start || last_side == domino.first_side)
+		if (last_side < 0 && domino.first != 0 || last_side == domino.first)
 		{
-			std::string chain = domino.first_side + domino.second_side;
+			std::vector<Domino> chain = { domino };
 			domino.processed = true;
-			chain += get_max_chain(dominoes, false, domino.second_side);
+			auto next_chain = get_max_chain(dominoes, domino.second);
+			chain.insert(chain.end(), next_chain.begin(), next_chain.end());
 			domino.processed = false;
 
 			// Если получившаяся цепочка больше longest_chain, то заменяем её
-			if (chain_is_longer(chain, longest_chain))
+			if (chain.size() > longest_chain.size())
 			{
-				std::swap(chain, longest_chain);
+				longest_chain = std::move(chain);
 			}
 		}
 
 		// Случай, если домино можно перевернуть
-		if (start || last_side == domino.second_side)
+		if (last_side < 0 && domino.second != 0 || last_side == domino.second)
 		{
-			std::string chain = domino.second_side + domino.first_side;
+			std::vector<Domino> chain = { Domino(domino.second, domino.first) };
 			domino.processed = true;
-			chain += get_max_chain(dominoes, false, domino.first_side);
+			auto next_chain = get_max_chain(dominoes, domino.first);
+			chain.insert(chain.end(), next_chain.begin(), next_chain.end());
 			domino.processed = false;
 
 			// Если получившаяся цепочка больше longest_chain, то заменяем её
-			if (chain_is_longer(chain, longest_chain))
+			if (chain.size() > longest_chain.size())
 			{
-				std::swap(chain, longest_chain);
+				longest_chain = std::move(chain);
 			}
 		}
 
@@ -143,10 +148,15 @@ int main()
 	{
 		std::vector<Domino> dominoes{};
 		read_input(dominoes);
+		auto start_time = std::chrono::high_resolution_clock::now();
 
-		clock_t tStart = clock();
-		std::string max_chain = get_max_chain(dominoes);
-		printf("Time taken: %.2fs\n", (double)(clock() - tStart) / CLOCKS_PER_SEC);
+		std::sort(dominoes.begin(), dominoes.end(), [](const Domino& lhs, const Domino& rhs) {
+			return lhs.first == rhs.first ? lhs.second > rhs.second : lhs.first > rhs.first;
+		});
+		auto max_chain = get_max_chain(dominoes);
+
+		std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start_time;
+		printf("Time taken: %.3fs\n", duration.count());
 
 		write_output(max_chain);
 	}
