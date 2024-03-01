@@ -31,10 +31,16 @@ struct Domino
 	}
 };
 
+bool operator==(const Domino& lhs, const Domino& rhs)
+{
+	return lhs.first == rhs.first && lhs.second == rhs.second
+		|| lhs.first == rhs.second && lhs.second == rhs.first;
+}
+
 void read_input(std::vector<Domino>& dominoes)
 {
 	std::ifstream input_file;
-	input_file.open("input9.txt");
+	input_file.open("input.txt");
 
 	if (!input_file.is_open())
 	{
@@ -88,21 +94,20 @@ void write_output(const std::vector<Domino>& chain)
 
 std::vector<Domino> get_max_chain(std::vector<Domino>& dominoes, int last_side = -1)
 {
-	// В данную строку будет записываться текущая в процессе рекурсии цепочка
-	// В конце shortest_chain будет иметь максимальную цепочку из домино
 	std::vector<Domino> longest_chain;
+	std::vector<Domino> checked_dominoes;
 
 	for (Domino& domino : dominoes)
 	{
+		// Если длиннейшая цепочка по кол-ву совпадает с кол-вом домино - это ответ.
 		if (longest_chain.size() == dominoes.size())
 			break;
 
-
-		if (domino.processed)
-		{
-			// Если данное домино уже было использовано в постройке цепочки - пропускаем
+		// Если мы уже проверяли в текущей итерации такую домино
+		if (std::find(checked_dominoes.begin(), checked_dominoes.end(), domino) != checked_dominoes.end())
 			continue;
-		}
+
+		checked_dominoes.push_back(domino);
 
 		// Случай, если домнио не надо переворачивать
 		if (last_side < 0 && domino.first != 0 || last_side == domino.first)
