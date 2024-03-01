@@ -37,10 +37,10 @@ bool operator==(const Domino& lhs, const Domino& rhs)
 		|| lhs.first == rhs.second && lhs.second == rhs.first;
 }
 
-void read_input(std::vector<Domino>& dominoes)
+std::vector<Domino> read_input()
 {
 	std::ifstream input_file;
-	input_file.open("input.txt");
+	input_file.open("input9.txt");
 
 	if (!input_file.is_open())
 	{
@@ -50,6 +50,9 @@ void read_input(std::vector<Domino>& dominoes)
 	// Читаем количество домино
 	int dominoes_count;
 	input_file >> dominoes_count;
+
+	std::vector<Domino> dominoes;
+	dominoes.reserve(dominoes_count);
 
 	// Заполняем вектор доминошками
 	for (int i = 0; i < dominoes_count; i++)
@@ -65,6 +68,8 @@ void read_input(std::vector<Domino>& dominoes)
 	{
 		throw std::runtime_error("Error reading input.txt");
 	}
+
+	return dominoes;
 }
 
 void write_output(const std::vector<Domino>& chain)
@@ -102,6 +107,10 @@ std::vector<Domino> get_max_chain(std::vector<Domino>& dominoes, int last_side =
 		// Если длиннейшая цепочка по кол-ву совпадает с кол-вом домино - это ответ.
 		if (longest_chain.size() == dominoes.size())
 			break;
+		
+		// Если домино уже была проверена в этой цепочке
+		if (domino.processed)
+			continue;
 
 		// Если мы уже проверяли в текущей итерации такую домино
 		if (std::find(checked_dominoes.begin(), checked_dominoes.end(), domino) != checked_dominoes.end())
@@ -151,8 +160,8 @@ int main()
 {
 	try
 	{
-		std::vector<Domino> dominoes{};
-		read_input(dominoes);
+		std::vector<Domino> dominoes = read_input();
+		
 		auto start_time = std::chrono::high_resolution_clock::now();
 
 		std::sort(dominoes.begin(), dominoes.end(), [](const Domino& lhs, const Domino& rhs) {
